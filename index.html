@@ -1,28 +1,17 @@
-<!doctype html>
-<html lang="zh-Hant-TW">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>拍照加入行事曆</title>
-<meta name="description" content="拍下回診單或檢查通知單，自動辨識日期時間並加入手機行事曆。照片只在手機上處理，不會上傳。">
-<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="拍照行事曆">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="claude:viewport-fit-sides" content="cover">
 <style>
 :root {
   --bg: #ffffff; --fg: #111111; --muted: #6b6b6b; --line: #d9d9d9;
   --accent: #0b6b4f; --accent-fg: #ffffff; --warn: #b42318; --field: #ffffff;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #111111; --fg: #f2f2f2; --muted: #9a9a9a; --line: #333333;
-    --accent: #3fbf8f; --accent-fg: #0b0b0b; --warn: #ff7a6e; --field: #111111; }
+  :root:not([data-theme="light"]) { --bg: #111111; --fg: #f2f2f2; --muted: #9a9a9a; --line: #333333;
+    --accent: #3fbf8f; --accent-fg: #0b0b0b; --warn: #ff7a6e; --field: #111111; color-scheme: dark; }
 }
+:root[data-theme="dark"] { --bg: #111111; --fg: #f2f2f2; --muted: #9a9a9a; --line: #333333;
+  --accent: #3fbf8f; --accent-fg: #0b0b0b; --warn: #ff7a6e; --field: #111111; color-scheme: dark; }
 * { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
 html, body { background: var(--bg); color: var(--fg); }
 body {
@@ -31,7 +20,7 @@ body {
   padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   min-height: 100vh;
 }
-main { max-width: 560px; margin: 0 auto; padding: 0 16px 40px; }
+main { max-width: 560px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 40px; }
 header { display: flex; align-items: baseline; justify-content: space-between; padding: 20px 0 14px; border-bottom: 1px solid var(--fg); }
 h1 { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
 h2 { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .04em; margin: 28px 0 8px; }
@@ -56,6 +45,10 @@ h2 { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .04
 .hidden { display: none !important; }
 .note { font-size: 14px; color: var(--muted); }
 .warn { color: var(--warn); }
+.msg { margin-top: 14px; padding: 10px 0; border-top: 1px solid var(--warn); border-bottom: 1px solid var(--warn); color: var(--warn); font-size: 15px; }
+.preview-out { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.preview-out dt { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.preview-out dd { font-size: 17px; white-space: pre-wrap; }
 .install { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
 
 /* crop */
@@ -95,13 +88,14 @@ pre { white-space: pre-wrap; word-break: break-all; font: 14px/1.6 ui-monospace,
 textarea.paste { width: 100%; min-height: 220px; border: 1px solid var(--line); background: var(--field); color: var(--fg); font: inherit; font-size: 16px; padding: 10px; margin: 16px 0 12px; }
 textarea.paste:focus { outline: none; border-color: var(--fg); }
 </style>
-</head>
-<body>
+<p class="note" style="padding:10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));border-bottom:1px solid var(--line);text-align:center">預覽版：可以實際拍照辨識，但不會真的加入行事曆</p>
+
 <main>
   <header>
     <h1>拍照加入行事曆</h1>
     <button class="link" id="btnSettings" type="button">設定</button>
   </header>
+  <p class="msg hidden" id="msg" role="alert"></p>
 
   <!-- 首頁 -->
   <section id="vHome">
@@ -186,8 +180,9 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   <!-- 完成 -->
   <section id="vDone" class="hidden">
     <div class="done">
-      <h1>已送到行事曆</h1>
+      <h1 id="doneTitle">已送到行事曆</h1>
       <p id="doneText">請在跳出的畫面按「加入」或「儲存」完成。</p>
+      <dl class="preview-out hidden" id="previewOut"></dl>
     </div>
     <div class="stack">
       <button class="btn primary" id="btnAgain" type="button">再拍一張</button>
@@ -222,8 +217,389 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   </section>
 </main>
 
-<script src="s2t.js"></script>
-<script src="parser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script>
+self.S2T_PAIR = ["疗绚诚娇题贿纳计与妇骑钟处驽资关椤专问韵节备网东汇蹿业录鲶产岳绍泺过让这发为编锛镀辆栾栗综涩馀机块兴抚沧滥页异橹钇跄国绥报开长讥讲间唇饯赛断觉艰钺动双单啮户确锦电鹃评总对独诲墙组级帘时雇鉴闲体杂轰诿腾师规线办桧砺图痫许犊戏骁鹅场给纷说学会浒设诊来溆诡焕砾实径惭锝阊暂蚕执条钦进铋样风蜡钊鹤从调验髌韫谗圆检区个兹没齿轼儿颧鲤铨务训滦辗护横侦党馋驾侬妪幂绺骐筝课缰门项谙瞒秃罚声呐鳌啬睐赈鱼厅鲟谅数击谈绩别鹧胪结谱识陕粽拟构选亿缆监逻婵达谩减员禄峤龙叽闯细装谕钙导渊辘挡饪记邮医搂带蔷万辈盏亘铰请闻税诩琐馊缂营访炖占农缀经钚张谨论乡赉宝尔钰艺荣荐丧傩众颞释缝标贲卫矶领飞温洼转斗涨枞惧随争驯挟传内响临红渍织渑载靥虽苹咨娄库帜亲欧边抛镓厨继窑躯脏参贸绸鳄穷详举谴迁驷蒋纠观碍锏贴证黄鲸饱园汉浈瑷虫驴济应沣谔价矿晒准译宁郑饴攒珑群阖藓预环袭简遥奥贞撑绱馅钧橱魉唤惫购吗瘿镗鲵续钻腭损锶统涌滨贪链冈咏吁览阔绀凭绉抢鸨责鹊刹岿绊术锷违们铜烫审鲂广铌铟鲍峄帮难叁缥颛后阕闭缚码嘤舱昵烬隶烛丑强鲛龟钩呕费阑补赃床钼烨阂脱称属华届汹蛰静运鳗庆疱麸耧础测缢迹霁岁雾读贯郁虑变钓现乐维渔脑钡湿硕积联玛则见钽赵讨谡沪绒财勋励帐将帅纪婴岭厘伤坝涧并姗蹑锴辖迩绌诉类诈轲职县绣奖晋肠几劳获亩晕厌号罢复尝锅岛扰队坠瘾钬卧镇频据垄采缪瘫绳筛恒烟桦书蚝缉态袄轻铮偻垅坛骇陈驹卤郓摇殡宪鲨铅语顺鸳霭夸椁晓酿痈签离锤缦潍军姹驶鳟鲁钜绿颖乌胶炀铁呓权韦堑毁靓锲鸠宫适迟况凛浔吃飘债莳绂斋欢濒缠鳜当驭篮锆钳龛隐弑昙毙郧獭赊恼灵炉谬衔点层诺脍榈征瘘飒蓟咙尘苏脚诵邓义诠还试颓痴鳕烩镶嵘恶骂险绋刘纾潜銮须销瘪屉厕质划殚锈辍远绝峥缍认镱贩泾诒饿锥笺蓦档荠头仪铆车气厢酝湾邹飚锂写无绛议笃阅饼砚询缕闺蔼珲阉娲诽韩诰糍镯浏阳铣赘瓯游锭茏坏劲奂砀输岖极摆灿腻药吨话额慑协壳视颅聋颇较岗扫栏钾枭霉键镝连狞刿丽肿掸灾濑莲犹战馄软络显鸢宾剥桡讯凯阶滤卖骚兑樱两娱净阴戬蕲焖妫仑闱尽爱贷沥鞑骤订捡锻杩鹗鸬阄盐杨崃状货耸腼铸懒溅翘缙砻赁谤纣归饭铡颂撷负铢镧寿铃砖恳祸狈银兰沦膻剧拢骠铐郏掷纯秘种听绘螨团盗埚蓝荞铀泼齐肾酱虚闵馆绅韧忏窝顾辞辋贱锕俭绑鲷择驰谪胫颚鲢绠鹄崂俨丝骄诛镁闪侧哟狭铈缮迳鲲笼满玑绦峡泽斓怂坟猪该蚬弥赞晔创疖铕镭楼铂锣挣栉习桢袅谦坚谟猬钎衅亏骆谚鲈飕镦谌莺羁轶悬哒谐荆虏浓刍钕杰渗伞栋灏榉陨掴颁绵贬撵彦鸡锋耻疯纹绶辕册朴钱谀厮炽词瓒忆轧谯喷绮寝势顷衮嫒逊镖唛殒顶轭铺蛊废恹纺闳拧讪厩赓灭沟挂饺树缨丛嗳侩筹叶骋挚滞圣赌毡癞恺篓肮帏驿遗鬓骡烦终殇饶匮拥纱铍骗龋缬栎掳颜鲆猎敌谥鲫贾罗缄癣托牵堕兽萤夹椭绐摄颡颢浑乱剐箫纲围决伙镳缓铑储毕珐缈虱盖鸿谓髅娴贤唠籼呜氩纨辟妈缴羟阙鳐囱饬窥毂驻鹉诙雳厂鸣栈羡渐哓嚣骛噜严诱压绞焘抡纬锹侠脐竞骧颦荪滚萦伪锁洒颔诏鹰亚颈际爷刚钨丰养鲽辉画麦皂凑诀硖杀铠镐轴峦历谣辊窍币趸蝎贝宽辫扩饲锰蛎却恸钉贼龚嘘礼硷铲烧绕诃浃钿柜讼颊镣玮谁挥谘躏渎仓错镊炼尧胧梦鹫凶荟顽赔蛴狰沤禅辽钗颌吴悯娈马啧镑咸钥庄谊陆锉鸦乔惩缃蛏岘鸽镒钯柠鸥卢荡倾萧贮聂冲笕鸯绯祯谆啸筑踌苁鱿蘖热溃宠泞偿檩担畴铵骊滢淀饨镜赣馁颐搁递涡贻镌猕蕴铎矾讳迈蚂紧鲳锄睁桥瓮篱跷晖癫袜莹滟约峰拦莅鹦裤疡谛鳝斩驸胜贺钢栅恋巯尸锚纵绢锐鲜诶秽寻怀灶谜搀恽痉愿杠锔钣蹒赐莱裆骜粮润誉胆龊陇绾垭龈弹赢猫涂茧赖亵苇澜换颉哗涠鹭诣鲇鲅冯巩锟谋鳃钠捞碱伫邝辄皲忧稳昼缩阈睑铝喽莼诸苎傥赅贵壮蚀邬浊触荫渌枫鹜牍缅垫侥顿胁胀匀绰茎赋谑铒夺蜗娆弯隽辩掺蝈觐橼缔崭弃劝闫阵踪侣仅荧赎蝾买冻赝箩枪舆涛启践绲盘诬纰惨祷钒暧阗钞邻扬殴揽彻岩钝伦徕庞芜兖饥鳞账颗鳍讹纽谭伟觑诘挛鳅丢献陉鸪萨疮辑叙恻谒烂纭擞涤鸵雏钮腌飙篑凄锵诧汤蚁壶谰皑铄辅闽烃饮蛳鳖钵枣桠稣阎肃诫孪屿缫阐栖诟荭谎镍韬魇蛮滩垩苋扪馏轩厉禀垒赏钛辐纸坞挤荥铧帼蒌蝇浆瑶凿馈铱优氢锌炝萝绔浍涞麽锢桨绎镰锑铬绽觎鸟钴觇骥仆婶针瞩疟捣阚泻贫镂赂鸾屡衬叠粤惬郸绻饵搅敛垦闷蝉败泸肤鹌舰祢骏赠竖芗洁笋鹑携颍饰岂涟蔺怜炜缎绪痨娅桩铿缇觞巅莴闰窃狱钏铛浇飨绗诅郦跃吕琏颤尴抠赚氲邺荬叹饽孙牦潴驮凤槛剂灯锯槟诗颠锗籁剑嘱龄讫愤谍阀脓玺狮砜锺闾嬷鹏贡矫绁拣讣惯趋岚虾飓铖畅髋庐练绡泷妩榄讷觅旧呛罂蜕脉熏烁潇圹轿锡脸残鹂咤误闹怆拨绨谢唢纶驳咛摈虬够缁悦撸奋饷惮璎妆窦怅鳙琼闸荚涝绫蓥诋荨辙缭铉痒粪嫔赡庙葱痪摊铭轨惊挠浅枢阆谏俪秆泪跻讶鳎呗绷鹳缜旷铊皱龌艳哝赶骞腊笔栀厦纫纤眦馍诤哑谄骅谧歼驼挝犷凉芦铤挞诞讽荤跖吓馒鲑讴轮缤帧删驱扑俩涣镉佣贰肴哔牺镛缘鸭阁潋聪窜苍觊侨祎锘硚饸纟饦麺骝钅讠锽浐饹岽骓啰糁鲮戋轱呙馕旸饣铔闿缐铞铪鹞鲱锨俫犸殁鲩袆厍镔溇昽蛲", "療絢誠嬌題賄納計與婦騎鍾處駑資關欏專問韻節備網東匯躥業錄鯰產嶽紹濼過讓這發爲編錛鍍輛欒慄綜澀餘機塊興撫滄濫頁異櫓釔蹌國綏報開長譏講間脣餞賽斷覺艱鉞動雙單齧戶確錦電鵑評總對獨誨牆組級簾時僱鑑閒體雜轟諉騰師規線辦檜礪圖癇許犢戲驍鵝場給紛說學會滸設診來漵詭煥礫實徑慚鍀閶暫蠶執條欽進鉍樣風蠟釗鶴從調驗髕韞讒圓檢區個茲沒齒軾兒顴鯉銓務訓灤輾護橫偵黨饞駕儂嫗冪綹騏箏課繮門項諳瞞禿罰聲吶鰲嗇睞賑魚廳鱘諒數擊談績別鷓臚結譜識陝糉擬構選億纜監邏嬋達謾減員祿嶠龍嘰闖細裝諭鈣導淵轆擋飪記郵醫摟帶薔萬輩盞亙鉸請聞稅詡瑣餿緙營訪燉佔農綴經鈈張謹論鄉賚寶爾鈺藝榮薦喪儺衆顳釋縫標賁衛磯領飛溫窪轉鬥漲樅懼隨爭馴挾傳內響臨紅漬織澠載靨雖蘋諮婁庫幟親歐邊拋鎵廚繼窯軀髒參貿綢鱷窮詳舉譴遷駟蔣糾觀礙鐧貼證黃鯨飽園漢湞璦蟲驢濟應灃諤價礦曬準譯寧鄭飴攢瓏羣闔蘚預環襲簡遙奧貞撐鞝餡鈞櫥魎喚憊購嗎癭鏜鯢續鑽齶損鍶統湧濱貪鏈岡詠籲覽闊紺憑縐搶鴇責鵲剎巋絆術鍔違們銅燙審魴廣鈮銦鮑嶧幫難叄縹顓後闋閉縛碼嚶艙暱燼隸燭醜強鮫龜鉤嘔費闌補贓牀鉬燁閡脫稱屬華屆洶蟄靜運鰻慶皰麩耬礎測縊跡霽歲霧讀貫鬱慮變釣現樂維漁腦鋇溼碩積聯瑪則見鉭趙討謖滬絨財勳勵帳將帥紀嬰嶺釐傷壩澗並姍躡鍇轄邇絀訴類詐軻職縣繡獎晉腸幾勞獲畝暈厭號罷復嘗鍋島擾隊墜癮鈥臥鎮頻據壟採繆癱繩篩恆煙樺書蠔緝態襖輕錚僂壠壇駭陳駒滷鄆搖殯憲鯊鉛語順鴛靄誇槨曉釀癰籤離錘縵濰軍奼駛鱒魯鉅綠穎烏膠煬鐵囈權韋塹毀靚鍥鳩宮適遲況凜潯喫飄債蒔紱齋歡瀕纏鱖當馭籃鋯鉗龕隱弒曇斃鄖獺賒惱靈爐謬銜點層諾膾櫚徵瘻颯薊嚨塵蘇腳誦鄧義詮還試頹癡鱈燴鑲嶸惡罵險紼劉紓潛鑾須銷癟屜廁質劃殫鏽輟遠絕崢綞認鐿販涇詒餓錐箋驀檔薺頭儀鉚車氣廂醞灣鄒飈鋰寫無絳議篤閱餅硯詢縷閨藹琿閹媧誹韓誥餈鐲瀏陽銑贅甌遊錠蘢壞勁奐碭輸嶇極擺燦膩藥噸話額懾協殼視顱聾頗較崗掃欄鉀梟黴鍵鏑連獰劌麗腫撣災瀨蓮猶戰餛軟絡顯鳶賓剝橈訊凱階濾賣騷兌櫻兩娛淨陰戩蘄燜嬀侖闈盡愛貸瀝韃驟訂撿鍛榪鶚鸕鬮鹽楊崍狀貨聳靦鑄懶濺翹縉礱賃謗紂歸飯鍘頌擷負銖鑭壽鈴磚懇禍狽銀蘭淪羶劇攏驃銬郟擲純祕種聽繪蟎團盜堝藍蕎鈾潑齊腎醬虛閔館紳韌懺窩顧辭輞賤錒儉綁鯛擇馳謫脛顎鰱綆鵠嶗儼絲驕誅鎂閃側喲狹鈰繕逕鯤籠滿璣絛峽澤斕慫墳豬該蜆彌贊曄創癤銪鐳樓鉑鑼掙櫛習楨嫋謙堅謨蝟釺釁虧駱諺鱸颼鐓諶鶯羈軼懸噠諧荊虜濃芻釹傑滲傘棟灝櫸隕摑頒綿貶攆彥雞鋒恥瘋紋綬轅冊樸錢諛廝熾詞瓚憶軋譙噴綺寢勢頃袞嬡遜鏢嘜殞頂軛鋪蠱廢懨紡閎擰訕廄賡滅溝掛餃樹纓叢噯儈籌葉騁摯滯聖賭氈癩愷簍骯幃驛遺鬢騾煩終殤饒匱擁紗鈹騙齲纈櫟擄顏鮃獵敵諡鯽賈羅緘癬託牽墮獸螢夾橢紿攝顙顥渾亂剮簫綱圍決夥鑣緩銠儲畢琺緲蝨蓋鴻謂髏嫺賢嘮秈嗚氬紈闢媽繳羥闕鰩囪飭窺轂駐鵡詼靂廠鳴棧羨漸嘵囂騖嚕嚴誘壓絞燾掄緯鍬俠臍競驤顰蓀滾縈僞鎖灑頷詔鷹亞頸際爺剛鎢豐養鰈輝畫麥皁湊訣硤殺鎧鎬軸巒歷謠輥竅幣躉蠍貝寬辮擴飼錳蠣卻慟釘賊龔噓禮礆鏟燒繞訶浹鈿櫃訟頰鐐瑋誰揮諮躪瀆倉錯鑷煉堯朧夢鷲兇薈頑賠蠐猙漚禪遼釵頜吳憫孌馬嘖鎊鹹鑰莊誼陸銼鴉喬懲緗蟶峴鴿鎰鈀檸鷗盧蕩傾蕭貯聶衝筧鴦緋禎諄嘯築躊蓯魷櫱熱潰寵濘償檁擔疇銨驪瀅澱飩鏡贛餒頤擱遞渦貽鐫獼蘊鐸礬諱邁螞緊鯧鋤睜橋甕籬蹺暉癲襪瑩灩約峯攔蒞鸚褲瘍諦鱔斬駙勝賀鋼柵戀巰屍錨縱絹銳鮮誒穢尋懷竈謎攙惲痙願槓鋦鈑蹣賜萊襠驁糧潤譽膽齪隴綰埡齦彈贏貓塗繭賴褻葦瀾換頡譁潿鷺詣鮎鮁馮鞏錕謀鰓鈉撈鹼佇鄺輒皸憂穩晝縮閾瞼鋁嘍蓴諸苧儻賅貴壯蝕鄔濁觸蔭淥楓鶩牘緬墊僥頓脅脹勻綽莖賦謔鉺奪蝸嬈彎雋辯摻蟈覲櫞締嶄棄勸閆陣蹤侶僅熒贖蠑買凍贗籮槍輿濤啓踐緄盤誣紕慘禱釩曖闐鈔鄰揚毆攬徹巖鈍倫徠龐蕪兗飢鱗賬顆鰭訛紐譚偉覷詰攣鰍丟獻陘鴣薩瘡輯敘惻謁爛紜擻滌鴕雛鈕醃飆簣悽鏘詫湯蟻壺讕皚鑠輔閩烴飲螄鱉鉢棗椏穌閻肅誡孿嶼繅闡棲詬葒謊鎳韜魘蠻灘堊莧捫餾軒厲稟壘賞鈦輻紙塢擠滎鏵幗蔞蠅漿瑤鑿饋銥優氫鋅熗蘿絝澮淶麼錮槳繹鐮銻鉻綻覦鳥鈷覘驥僕嬸針矚瘧搗闞瀉貧鏤賂鸞屢襯疊粵愜鄲綣餌攪斂墾悶蟬敗瀘膚鵪艦禰駿贈豎薌潔筍鶉攜潁飾豈漣藺憐煒緞緒癆婭樁鏗緹觴巔萵閏竊獄釧鐺澆饗絎詛酈躍呂璉顫尷摳賺氳鄴蕒嘆餑孫犛瀦馱鳳檻劑燈鋸檳詩顛鍺籟劍囑齡訖憤諜閥膿璽獅碸鍾閭嬤鵬貢矯紲揀訃慣趨嵐蝦颶鋮暢髖廬練綃瀧嫵欖訥覓舊嗆罌蛻脈燻爍瀟壙轎錫臉殘鸝吒誤鬧愴撥綈謝嗩綸駁嚀擯虯夠緇悅擼奮餉憚瓔妝竇悵鱅瓊閘莢澇綾鎣詆蕁轍繚鉉癢糞嬪贍廟蔥瘓攤銘軌驚撓淺樞閬諫儷稈淚躋訝鰨唄繃鸛縝曠鉈皺齷豔噥趕騫臘筆梔廈紉纖眥饃諍啞諂驊謐殲駝撾獷涼蘆鋌撻誕諷葷蹠嚇饅鮭謳輪繽幀刪驅撲倆渙鎘傭貳餚嗶犧鏞緣鴨閣瀲聰竄蒼覬僑禕鍩礄餄糹飥麪騮釒訁鍠滻餎崬騅囉糝鯪戔軲咼饢暘飠錏闓線銱鉿鷂鯡鍁倈獁歿鯇褘厙鑌漊曨蟯"];
+
+</script>
+<script>
+// 回診單 / 檢查通知單 解析規則
+// parse(text, { now: Date, s2t: [simplifiedChars, traditionalChars], sessions: {am:'08:30', pm:'13:30', ev:'18:00'} })
+(function (root) {
+  const HAN = '\\u3400-\\u9fff';
+  const WEEK = { '日': 0, '天': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6 };
+  const BAD_DATE_CTX = /列印|印表|列表|開立|開單|出生|生日|製表|發票|有效|截止|列印日|印製/;
+  const DATE_CTX = /預約|約診|看診|就診|回診|門診|日\s*期|預約日|檢查|檢驗|報到|手術|治療|施打|注射|領藥/;
+
+  let S2T = null;
+  function setS2T(pair) { if (!pair) return; S2T = {}; for (let i = 0; i < pair[0].length; i++) S2T[pair[0][i]] = pair[1][i]; }
+
+  function normalize(text) {
+    let t = String(text || '');
+    // full-width ASCII → half-width
+    t = t.replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)).replace(/　/g, ' ');
+    if (S2T) t = t.replace(/[㐀-鿿]/g, ch => S2T[ch] || ch);
+    // common OCR confusions in labels / values
+    t = t.replace(/[﹕︰∶]/g, ':')
+      .replace(/上[年牛干]/g, '上午').replace(/下[年牛干]/g, '下午')
+      .replace(/(\d)\s*號/g, '$1號')
+      .replace(/[遇過]([一二三四五六日天])/g, '週$1')
+      .replace(/醫\s+師/g, '醫師').replace(/科\s+別/g, '科別').replace(/地\s+點/g, '地點').replace(/姓\s+名/g, '姓名');
+    return t.split(/\r?\n/).map(l => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean);
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+
+  function findWeekday(s) {
+    const m = s.match(/(?:星期|週|周|禮拜)\s*([一二三四五六日天])|[(（]\s*([一二三四五六日])\s*[)）]/);
+    return m ? WEEK[m[1] || m[2]] : null;
+  }
+
+  function findDates(lines, now) {
+    const out = [];
+    lines.forEach((line, i) => {
+      const re = /(民國)?\s*(\d{2,4})\s*[年\/\.\-]\s*(\d{1,2})\s*[月\/\.\-]\s*(\d{1,2})(?!\d)\s*日?/g;
+      let m;
+      while ((m = re.exec(line))) {
+        let y = +m[2]; const mo = +m[3], d = +m[4];
+        if (m[2].length === 4 && y < 1990) continue;
+        if (y < 200) y += 1911;
+        if (y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) continue;
+        const dt = new Date(y, mo - 1, d);
+        if (dt.getMonth() !== mo - 1) continue;
+        out.push(score({ date: dt, line, i, idx: m.index, len: m[0].length, roc: !!m[1] || m[2].length <= 3 }));
+      }
+      // 月日 without year
+      const re2 = /(?:^|[^\d\/年])(\d{1,2})\s*月\s*(\d{1,2})\s*日/g;
+      while ((m = re2.exec(line))) {
+        if (/\d\s*年\s*$/.test(line.slice(0, m.index + 1))) continue;
+        const mo = +m[1], d = +m[2];
+        if (mo < 1 || mo > 12 || d < 1 || d > 31) continue;
+        let dt = new Date(now.getFullYear(), mo - 1, d);
+        if (dt < new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)) dt = new Date(now.getFullYear() + 1, mo - 1, d);
+        out.push(score({ date: dt, line, i, idx: m.index, len: m[0].length, noYear: true }, -1));
+      }
+    });
+    function score(c, base) {
+      let s = base || 0;
+      const ctx = c.line.slice(0, c.idx + c.len + 12);
+      if (DATE_CTX.test(ctx)) s += 3;
+      if (BAD_DATE_CTX.test(ctx)) s -= 6;
+      const wd = findWeekday(c.line.slice(c.idx)) ?? (lines[c.i + 1] ? findWeekday(lines[c.i + 1]) : null);
+      if (wd !== null) { s += wd === c.date.getDay() ? 4 : -1; c.weekdayOk = wd === c.date.getDay(); }
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (c.date >= today) s += 1;
+      c.score = s;
+      return c;
+    }
+    // de-duplicate same date, keep best score
+    const map = {};
+    for (const c of out) { const k = ymd(c.date); if (!map[k] || map[k].score < c.score) map[k] = c; }
+    return Object.values(map).sort((a, b) => b.score - a.score || a.i - b.i);
+  }
+
+  function findTimes(lines) {
+    const out = [];
+    lines.forEach((line, i) => {
+      const re = /(上午|下午|晚上|中午|早上)?\s*(\d{1,2})\s*[:：]\s*(\d{2})(?:\s*[:：]\s*\d{2})?/g;
+      let m;
+      while ((m = re.exec(line))) {
+        let h = +m[2]; const mi = +m[3];
+        if (h > 23 || mi > 59) continue;
+        if ((m[1] === '下午' || m[1] === '晚上') && h < 12) h += 12;
+        out.push(classify({ h, m: mi, line, i, idx: m.index }));
+      }
+      const re2 = /(上午|下午|晚上|中午|早上)?\s*(\d{1,2})\s*[點点時时]\s*(?:(\d{1,2})\s*分|半)?/g;
+      while ((m = re2.exec(line))) {
+        if (/[時时]\s*$/.test(m[0]) && !m[3]) continue; // avoid "8小時" style
+        let h = +m[2]; const mi = m[0].includes('半') ? 30 : (+m[3] || 0);
+        if (h > 23 || mi > 59) continue;
+        if ((m[1] === '下午' || m[1] === '晚上') && h < 12) h += 12;
+        out.push(classify({ h, m: mi, line, i, idx: m.index }));
+      }
+    });
+    function classify(t) {
+      const before = t.line.slice(0, t.idx);
+      t.kind = /預估|估計|約\s*$|以前|之前/.test(t.line.slice(Math.max(0, t.idx - 12), t.idx + 14)) ? 'estimate'
+        : /報到/.test(before) ? 'checkin'
+        : /預約時間|看診時間|檢查時間|時\s*間|預約|約診/.test(before) ? 'explicit' : 'other';
+      if (/禁食|空腹|禁水|前一天|前一晚|小時前/.test(t.line)) t.kind = 'other-fasting';
+      return t;
+    }
+    return out;
+  }
+
+  function findSession(lines) {
+    const txt = lines.join('\n');
+    if (/上午|早上|早診|晨間/.test(txt)) return 'am';
+    if (/下午|午診/.test(txt)) return 'pm';
+    if (/晚上|夜診|晚診|夜間門診/.test(txt)) return 'ev';
+    return null;
+  }
+
+  function cleanName(s) { return (s || '').replace(/醫師$|醫$|主任$|教授$/, ''); }
+
+  function first(lines, re, pick) {
+    for (const l of lines) { const m = l.match(re); if (m) { const v = pick ? pick(m) : m[1]; if (v) return v.trim(); } }
+    return '';
+  }
+
+  function findHospital(lines) {
+    const cands = [];
+    lines.forEach((l, i) => {
+      let s = l.replace(/^.*法人/, '').replace(/醫療院所\s*[:]?/g, ' ');
+      const re = new RegExp('([' + HAN + ']{2,14}?(?:醫學中心|醫院|診所|衛生所|分院))', 'g');
+      let m;
+      while ((m = re.exec(s))) {
+        let v = m[1].replace(/^(?:請至|請到|至|到|於|本|貴|回|在)/, '');
+        if (v.length < 3 || /^(?:本院|貴院|醫院|診所)$/.test(v)) continue;
+        cands.push({ v, i, score: (v.endsWith('醫院') || v.endsWith('醫學中心') ? 2 : 1) - i * 0.1 + Math.min(v.length, 8) * 0.05 });
+      }
+    });
+    cands.sort((a, b) => b.score - a.score);
+    return cands.length ? cands[0].v : '';
+  }
+
+  const EXAM_WORDS = '超音波|胃鏡|大腸鏡|內視鏡|電腦斷層|斷層掃描|核磁共振|磁振造影|X光|心電圖|心臟超音波|抽血|骨密度|乳房攝影|子宮頸抹片|肺功能|聽力|眼底|運動心電圖|骨骼掃描|正子|PET|CT|MRI|健康檢查|健檢|尿液';
+
+  // 回診｜奇美醫院 整形外科 林聿山 54號 ／ 檢查｜彰化基督教醫院 腹部超音波（需空腹）
+  function makeTitle(r) {
+    if (r.type === 'exam') return '檢查｜' + ([r.hospital, r.examItem].filter(Boolean).join(' ') || '醫院檢查') + (r.fasting ? '（需空腹）' : '');
+    return '回診｜' + ([r.hospital, r.dept, r.doctor].filter(Boolean).join(' ') || '門診') + (r.number ? ' ' + r.number + '號' : '');
+  }
+
+  function parse(text, opts) {
+    opts = opts || {};
+    const now = opts.now || new Date();
+    if (opts.s2t && !S2T) setS2T(opts.s2t);
+    const sessions = Object.assign({ am: '08:30', pm: '13:30', ev: '18:00' }, opts.sessions || {});
+    const lines = normalize(text);
+    const all = lines.join('\n');
+
+    const examScore = (all.match(new RegExp('檢查|檢驗|報到|' + EXAM_WORDS, 'g')) || []).length;
+    const visitScore = (all.match(/回診|門診|掛號|看診|診間|科別|醫師|序號|領藥/g) || []).length;
+    const type = examScore > visitScore ? 'exam' : 'visit';
+
+    const dates = findDates(lines, now);
+    const times = findTimes(lines);
+    const session = findSession(lines);
+
+    const dept = first(lines, new RegExp('科\\s*別\\s*[:]?\\s*(?:\\d+\\s*)?([' + HAN + ']{1,8}?科)'))
+      || first(lines, new RegExp('(?:^|[^' + HAN + '])([' + HAN + ']{1,6}科)(?![別' + HAN + '])'), m => /^(預約|科)/.test(m[1]) ? '' : m[1]);
+    const doctor = cleanName(first(lines, new RegExp('醫師\\s*[:]?\\s*([' + HAN + ']{2,4})'), m => /^(之|的|姓名|代號)/.test(m[1]) ? '' : m[1]));
+    const room = first(lines, /(?:診間|約間|診室|診別)\s*[:]?\s*([A-Za-z]?\d{1,4})/)
+      || first(lines, /(?:^|[^\d])([A-Za-z]?\d{1,4})\s*診(?!號|斷|療|所)/);
+    let number = first(lines, /(?:看診號|看診序號|序號|號碼|燈號)\s*[:]?\s*(\d{1,4})(?!\d)/, m => /病歷|身分|電話/.test(m.input) ? '' : m[1]);
+    if (!number) number = first(lines, /(?:^|[^\d\-])(\d{1,4})\s*號(?![碼專])/, m => /病歷|病例|身分|電話|專線|分機|健保|總機/.test(m.input) ? '' : m[1]);
+    const hospital = findHospital(lines);
+    const place = first(lines, /(?:診間位置|檢查地點|報到地點|報到處|地點|位置)\s*[:]?\s*(.+)/).replace(/\s*\d{1,4}號$/, '');
+    const address = first(lines, /(?:院所地址|地址)\s*[:]?\s*(.+)/);
+    const remark = first(lines, /備\s*註?\s*[:]\s*(.+)/);
+    let examItem = first(lines, /(?:檢查項目|檢查名稱|檢查名目|檢查類別|預約項目)\s*[:]?\s*([^:，,。]{2,24})/);
+    if (!examItem && type === 'exam') examItem = first(lines, new RegExp('([' + HAN + 'A-Za-z]{0,6}(?:' + EXAM_WORDS + ')[' + HAN + 'A-Za-z()（）]{0,6})'));
+    examItem = examItem.replace(/\s+/g, ' ').replace(/(?:通知單|通知|預約單|單)$/, '').trim();
+    const fastingLine = lines.find(l => /空腹|禁食|禁水/.test(l)) || '';
+
+    // choose time
+    const pickTime = k => times.find(t => t.kind === k);
+    let time = null, timeSource = '';
+    const ck = pickTime('checkin'), ex = pickTime('explicit'), es = pickTime('estimate');
+    if (ck) { time = ck; timeSource = 'checkin'; }
+    else if (ex) { time = ex; timeSource = 'explicit'; }
+    else if (es) { time = es; timeSource = 'estimate'; }
+    else if (pickTime('other')) { time = pickTime('other'); timeSource = 'other'; }
+    else if (session) { const [h, m] = sessions[session].split(':').map(Number); time = { h, m }; timeSource = 'session'; }
+
+    const sessionLabel = (type === 'exam' ? { am: '上午', pm: '下午', ev: '晚上' } : { am: '上午診', pm: '下午診', ev: '夜診' })[session] || '';
+    const title = makeTitle({ type, hospital, dept, doctor, number, examItem, fasting: !!fastingLine });
+
+    const notes = [];
+    if (hospital) notes.push('醫院：' + hospital);
+    if (type === 'exam' && examItem) notes.push('檢查項目：' + examItem);
+    if (dept) notes.push('科別：' + dept);
+    if (doctor) notes.push('醫師：' + doctor);
+    if (sessionLabel) notes.push('時段：' + sessionLabel);
+    if (room) notes.push('診間：' + room);
+    if (number) notes.push('看診號：' + number + '號');
+    if (es) notes.push('預估到診時間：' + pad(es.h) + ':' + pad(es.m) + '（僅供參考）');
+    if (ck && ex && ex !== ck) notes.push('檢查時間：' + pad(ex.h) + ':' + pad(ex.m));
+    if (fastingLine) notes.push('注意：' + fastingLine.replace(/^注意事項\s*[:]?\s*/, ''));
+    if (remark) notes.push('備註：' + remark);
+
+    let location = hospital;
+    const detail = place || address;
+    if (detail && !location.includes(detail)) location = [hospital, detail].filter(Boolean).join(' ');
+
+    return {
+      type,
+      title,
+      date: dates[0] ? ymd(dates[0].date) : '',
+      dateCandidates: dates.slice(0, 4).map(d => ymd(d.date)),
+      time: time ? pad(time.h) + ':' + pad(time.m) : '',
+      timeSource,
+      session,
+      hospital, dept, doctor, room, number, examItem,
+      location,
+      notes: notes.join('\n'),
+      fasting: !!fastingLine,
+      lines,
+    };
+  }
+
+  const api = { parse, normalize, setS2T, makeTitle };
+  if (typeof module !== 'undefined') module.exports = api; else root.SlipParser = api;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+// Lean PaddleOCR (PP-OCRv4) pipeline for onnxruntime-web. Works in browser and Node.
+// img = { data: Uint8ClampedArray RGBA, width, height }
+(function (root) {
+  function resizeRGBA(img, w, h) {
+    const out = new Uint8ClampedArray(w * h * 4);
+    const sx = img.width / w, sy = img.height / h;
+    for (let y = 0; y < h; y++) {
+      const fy = Math.min(img.height - 1, (y + 0.5) * sy - 0.5), y0 = Math.max(0, Math.floor(fy)), y1 = Math.min(img.height - 1, y0 + 1), dy = Math.max(0, fy - y0);
+      for (let x = 0; x < w; x++) {
+        const fx = Math.min(img.width - 1, (x + 0.5) * sx - 0.5), x0 = Math.max(0, Math.floor(fx)), x1 = Math.min(img.width - 1, x0 + 1), dx = Math.max(0, fx - x0);
+        const i00 = (y0 * img.width + x0) * 4, i01 = (y0 * img.width + x1) * 4, i10 = (y1 * img.width + x0) * 4, i11 = (y1 * img.width + x1) * 4, o = (y * w + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          out[o + c] = (img.data[i00 + c] * (1 - dx) + img.data[i01 + c] * dx) * (1 - dy) + (img.data[i10 + c] * (1 - dx) + img.data[i11 + c] * dx) * dy;
+        }
+        out[o + 3] = 255;
+      }
+    }
+    return { data: out, width: w, height: h };
+  }
+
+  function crop(img, x, y, w, h) {
+    x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+    w = Math.min(img.width - x, Math.round(w)); h = Math.min(img.height - y, Math.round(h));
+    const out = new Uint8ClampedArray(w * h * 4);
+    for (let r = 0; r < h; r++) out.set(img.data.subarray(((y + r) * img.width + x) * 4, ((y + r) * img.width + x + w) * 4), r * w * 4);
+    return { data: out, width: w, height: h };
+  }
+
+  async function detect(ort, sess, img, maxSide) {
+    maxSide = maxSide || 960;
+    let r = Math.min(1, maxSide / Math.max(img.width, img.height));
+    let w = Math.max(32, Math.round(img.width * r / 32) * 32), h = Math.max(32, Math.round(img.height * r / 32) * 32);
+    const rs = resizeRGBA(img, w, h);
+    const mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+    const t = new Float32Array(3 * w * h);
+    for (let i = 0; i < w * h; i++) for (let c = 0; c < 3; c++) t[c * w * h + i] = (rs.data[i * 4 + c] / 255 - mean[c]) / std[c];
+    const out = await sess.run({ x: new ort.Tensor('float32', t, [1, 3, h, w]) });
+    const prob = out[Object.keys(out)[0]].data;
+    // connected components on binary map
+    const bin = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) bin[i] = prob[i] > 0.3 ? 1 : 0;
+    const seen = new Uint8Array(w * h), boxes = [], stack = new Int32Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+      if (!bin[i] || seen[i]) continue;
+      let sp = 0, minx = w, miny = h, maxx = 0, maxy = 0, n = 0, score = 0;
+      stack[sp++] = i; seen[i] = 1;
+      while (sp) {
+        const p = stack[--sp], px = p % w, py = (p / w) | 0;
+        n++; score += prob[p];
+        if (px < minx) minx = px; if (px > maxx) maxx = px; if (py < miny) miny = py; if (py > maxy) maxy = py;
+        const nb = [p - 1, p + 1, p - w, p + w];
+        for (let k = 0; k < 4; k++) {
+          const q = nb[k];
+          if (q < 0 || q >= w * h) continue;
+          if ((k === 0 && px === 0) || (k === 1 && px === w - 1)) continue;
+          if (bin[q] && !seen[q]) { seen[q] = 1; stack[sp++] = q; }
+        }
+      }
+      const bw = maxx - minx + 1, bh = maxy - miny + 1;
+      if (Math.min(bw, bh) < 3 || score / n < 0.6) continue;
+      const d = (bw * bh * 1.6) / (2 * (bw + bh)); // unclip
+      const sx = img.width / w, sy = img.height / h;
+      boxes.push({ x: (minx - d) * sx, y: (miny - d) * sy, w: (bw + 2 * d) * sx, h: (bh + 2 * d) * sy });
+    }
+    return boxes;
+  }
+
+  async function recognize(ort, sess, keys, img) {
+    const H = 48, W = Math.max(16, Math.min(2000, Math.ceil(H * img.width / img.height)));
+    const rs = resizeRGBA(img, W, H), t = new Float32Array(3 * W * H);
+    for (let i = 0; i < W * H; i++) for (let c = 0; c < 3; c++) t[c * W * H + i] = (rs.data[i * 4 + c] / 255 - 0.5) / 0.5;
+    const out = await sess.run({ x: new ort.Tensor('float32', t, [1, 3, H, W]) });
+    const o = out[Object.keys(out)[0]], [, T, C] = o.dims, d = o.data;
+    let s = '', last = -1, conf = 0, cnt = 0;
+    for (let i = 0; i < T; i++) {
+      let mi = 0, mv = -1;
+      for (let j = 0; j < C; j++) if (d[i * C + j] > mv) { mv = d[i * C + j]; mi = j; }
+      if (mi !== 0 && mi !== last) { s += keys[mi] || ''; conf += mv; cnt++; }
+      last = mi;
+    }
+    return { text: s, conf: cnt ? conf / cnt : 0 };
+  }
+
+  // Group boxes into rows and return lines of text
+  async function ocr(ort, det, rec, keys, img, opts) {
+    opts = opts || {};
+    const boxes = await detect(ort, det, img, opts.maxSide);
+    const items = [];
+    for (const b of boxes) {
+      const c = crop(img, b.x, b.y, b.w, b.h);
+      if (c.width < 4 || c.height < 4) continue;
+      let r = await recognize(ort, rec, keys, c);
+      if (c.height > c.width * 1.5) continue; // skip vertical noise
+      if (r.text.trim() && r.conf > 0.5) items.push({ ...b, text: r.text.trim(), conf: r.conf });
+      if (opts.onProgress) opts.onProgress(items.length / boxes.length);
+    }
+    items.sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
+    const rows = [];
+    for (const it of items) {
+      const cy = it.y + it.h / 2;
+      const row = rows.find(r => Math.abs(r.cy - cy) < Math.min(r.h, it.h) * 0.5);
+      if (row) { row.items.push(it); row.cy = (row.cy * (row.items.length - 1) + cy) / row.items.length; }
+      else rows.push({ cy, h: it.h, items: [it] });
+    }
+    rows.sort((a, b) => a.cy - b.cy);
+    return rows.map(r => r.items.sort((a, b) => a.x - b.x).map(i => i.text).join('  '));
+  }
+
+  function buildKeys(txt) { return [''].concat(txt.replace(/\r/g, '').split('\n').filter((l, i, a) => !(i === a.length - 1 && l === '')), [' ']); }
+
+  const api = { ocr, buildKeys, resizeRGBA, crop };
+  if (typeof module !== 'undefined') module.exports = api; else root.PaddleLite = api;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+window.PREVIEW = true;
+window.OCR_ENGINE = (() => {
+  const CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+  let ready = null, det, rec, keys;
+  async function get(url, tick) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('下載失敗 ' + url);
+    const reader = res.body.getReader(), chunks = []; let n = 0;
+    for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); n += value.length; tick(value.length); }
+    const out = new Uint8Array(n); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
+  }
+  return {
+    init(onProgress) {
+      if (ready) return ready;
+      ready = (async () => {
+        const total = 4745517 + 10822323 + 11246032; let loaded = 0;
+        const tick = n => { loaded += n; onProgress && onProgress(Math.min(1, loaded / total)); };
+        const [wasm, d, r, k] = await Promise.all([get('vendor/ort-wasm-simd-threaded.wasm', tick), get('models/det-onnx.wasm', tick), get('models/rec-onnx.wasm', tick), fetch('models/keys.txt').then(x => x.text())]);
+        ort.env.wasm.wasmPaths = CDN; ort.env.wasm.numThreads = 1; ort.env.wasm.proxy = false; ort.env.wasm.wasmBinary = wasm;
+        det = await ort.InferenceSession.create(d);
+        rec = await ort.InferenceSession.create(r);
+        keys = PaddleLite.buildKeys(k);
+      })();
+      ready.catch(() => { ready = null; });
+      return ready;
+    },
+    async run(img, onProgress) { await this.init(); return PaddleLite.ocr(ort, det, rec, keys, img, { onProgress }); },
+  };
+})();
+</script>
 <script>
 (() => {
   'use strict';
@@ -243,7 +619,9 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   // ---------- views ----------
   const views = ['vHome', 'vCrop', 'vBusy', 'vPaste', 'vForm', 'vDone', 'vSettings'];
   let prevView = 'vHome';
+  function notice(t) { const m = $('msg'); m.textContent = t; m.classList.remove('hidden'); window.scrollTo(0, 0); }
   function show(id) {
+    $('msg').classList.add('hidden');
     views.forEach(v => $(v).classList.toggle('hidden', v !== id));
     if (id !== 'vSettings') prevView = id;
     $('btnSettings').textContent = id === 'vSettings' ? '關閉' : '設定';
@@ -254,6 +632,13 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   let worker = null, modelReady = false, jobId = 0;
   const pending = {};
   function startWorker() {
+    if (window.OCR_ENGINE) { // preview build: OCR runs on the page itself
+      if (worker) return; worker = true;
+      window.OCR_ENGINE.init(v => setModel('辨識模組下載中（約 27 MB）', v))
+        .then(() => { modelReady = true; setModel('辨識模組已就緒', 1); setTimeout(() => $('modelBarWrap').classList.add('hidden'), 600); })
+        .catch(e => setModel('辨識模組載入失敗：' + e.message + '，請改用「貼上文字」', null, true));
+      return;
+    }
     if (worker) return;
     try { worker = new Worker('ocr-worker.js'); }
     catch (e) { setModel('無法啟動辨識模組，請改用「貼上文字」', null, true); return; }
@@ -278,6 +663,7 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
     if (v != null) $('modelBar').style.width = Math.round(v * 100) + '%';
   }
   function runOCR(img) {
+    if (window.OCR_ENGINE) return window.OCR_ENGINE.run(img, v => { $('busyBar').style.width = Math.round(v * 100) + '%'; });
     return new Promise((resolve, reject) => {
       const id = ++jobId;
       pending[id] = { resolve, reject };
@@ -302,7 +688,7 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
       srcCanvas = c; sel = null;
       show('vCrop'); drawCrop();
     } catch (e) {
-      alert('無法讀取這張照片，請換一張試試。');
+      notice('無法讀取這張照片，請換一張試試。');
     } finally { URL.revokeObjectURL(url); }
   }
   ['inCamera', 'inLibrary'].forEach(id => $(id).addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; }));
@@ -368,11 +754,11 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
     startWorker();
     try {
       const lines = await runOCR({ data: imgData.data, width: w, height: h });
-      if (!lines.length) { alert('沒有辨識到文字。請拍清楚一點、避免反光，或改用「貼上文字」。'); show('vCrop'); return; }
+      if (!lines.length) { show('vCrop'); notice('沒有辨識到文字。請拍清楚一點、避免反光，或改用「貼上文字」。'); return; }
       fillForm(SlipParser.parse(lines.join('\n'), { sessions: { am: settings.am, pm: settings.pm, ev: settings.ev } }));
     } catch (e) {
-      alert('辨識失敗：' + e.message + '\n可以改用「貼上文字」。');
       show('vHome');
+      notice('辨識失敗：' + e.message + '。可以改用「貼上文字」。');
     }
   };
 
@@ -394,12 +780,7 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   $('segType').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || !current) return;
     setType(b.dataset.v);
-    if (!titleEdited) {
-      const r = current;
-      $('fTitle').value = r.type === 'exam'
-        ? '檢查｜' + (r.examItem || r.hospital || '醫院檢查') + (r.fasting ? '（需空腹）' : '')
-        : '回診｜' + ([r.dept, r.doctor].filter(Boolean).join(' ') || r.hospital || '門診') + (r.number ? ' ' + r.number + '號' : '');
-    }
+    if (!titleEdited) $('fTitle').value = SlipParser.makeTitle(current);
   });
   $('fTitle').addEventListener('input', () => { titleEdited = true; });
 
@@ -422,7 +803,12 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
     $('fNotes').value = r.notes;
     $('rawText').textContent = r.lines.join('\n');
     requestAnimationFrame(() => { const t = $('fNotes'); t.style.height = 'auto'; t.style.height = (t.scrollHeight + 4) + 'px'; });
-    $('timeSub').textContent = r.time ? (SRC[r.timeSource] || '') : '單據上找不到時間，請確認';
+    const sessName = { am: '上午診', pm: '下午診', ev: '夜診' }[r.session];
+    let sub;
+    if (r.timeSource === 'session') sub = '單據沒寫時間，已填入' + sessName + '開診時間' + (r.number ? '，看診號 ' + r.number + ' 號' : '') + '。可在設定修改預設時間';
+    else if (!r.time) sub = '單據上找不到時間和時段，已填入上午診時間' + (r.number ? '（看診號 ' + r.number + ' 號）' : '') + '，請確認';
+    else sub = SRC[r.timeSource] || '';
+    $('timeSub').textContent = sub;
     $('timeSub').classList.toggle('warn', !r.time || r.timeSource === 'other');
     // dates
     const chips = $('dateChips'); chips.innerHTML = '';
@@ -529,10 +915,22 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   }
   function openGoogle(ev) { window.open(googleURL(ev), '_blank'); }
 
-  function done(msg) { $('doneText').textContent = msg; show('vDone'); }
+  function done(msg) { $('doneTitle').textContent = '已送到行事曆'; $('doneText').textContent = msg; $('previewOut').classList.add('hidden'); show('vDone'); }
+  function previewDone(ev, how) {
+    const fmt = d => (d.getFullYear() - 1911) + '/' + (d.getMonth() + 1) + '/' + d.getDate() + '（' + '日一二三四五六'[d.getDay()] + '）' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+    $('doneText').textContent = '預覽版不會真的加入行事曆。上線後' + how + '，會加入以下內容：';
+    const out = $('previewOut'); out.innerHTML = '';
+    [['標題', ev.title], ['時間', fmt(ev.start) + ' – ' + p2(ev.end.getHours()) + ':' + p2(ev.end.getMinutes())], ['地點', ev.location || '（無）'],
+     ['提醒', ev.alarm ? $('fAlarm').selectedOptions[0].textContent : '不提醒'], ['備註', ev.notes]].forEach(([k, v]) => {
+      const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; out.append(dt, dd);
+    });
+    $('doneTitle').textContent = '預覽：會加入的內容'; show('vDone'); out.classList.remove('hidden');
+    $('doneText').textContent = '預覽版不會真的加入行事曆。上線後' + how + '，會加入以下內容：';
+  }
   $('btnAdd').onclick = () => {
     if (!$('fDate').value) { $('formWarn').textContent = '請先選擇日期'; return; }
     const ev = getEvent();
+    if (window.PREVIEW) { previewDone(ev, isAndroid ? '會開啟手機行事曆的新增畫面' : '會跳出「加入行事曆」畫面'); return; }
     if (isIOS) { openICS(ev); setTimeout(() => done('請在跳出的畫面按「加入」或「全部加入」。沒有跳出的話，回上一步改用「下載 .ics 檔」。'), 400); return; }
     if (isAndroid) {
       if (settings.android === 'google') { openGoogle(ev); done('請在 Google 日曆按「儲存」完成。'); return; }
@@ -544,8 +942,8 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
     openICS(ev, true);
     done('已下載 .ics 檔，打開後即可加入行事曆。');
   };
-  $('altIcs').onclick = () => { if (!$('fDate').value) return updateDateSub(); openICS(getEvent(), true); };
-  $('altGoogle').onclick = () => { if (!$('fDate').value) return updateDateSub(); openGoogle(getEvent()); };
+  $('altIcs').onclick = () => { if (!$('fDate').value) return updateDateSub(); if (window.PREVIEW) return previewDone(getEvent(), '會下載 .ics 檔'); openICS(getEvent(), true); };
+  $('altGoogle').onclick = () => { if (!$('fDate').value) return updateDateSub(); if (window.PREVIEW) return previewDone(getEvent(), '會開啟 Google 日曆'); openGoogle(getEvent()); };
   if (isAndroid) { $('altNative').classList.remove('hidden'); $('altNative').onclick = () => { if (!$('fDate').value) return updateDateSub(); window.location.href = androidIntent(getEvent()); }; }
   $('btnAgain').onclick = () => show('vHome');
   $('btnBackForm').onclick = () => show('vForm');
@@ -581,11 +979,12 @@ textarea.paste:focus { outline: none; border-color: var(--fg); }
   }
 
   // ---------- service worker + preload ----------
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (window.PREVIEW) $('installTip').classList.add('hidden');
+  if (!window.PREVIEW && 'serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
   // start loading the OCR model right away so it is ready when the photo is taken
   startWorker();
   window.__pc = { parse: t => SlipParser.parse(t), buildICS, androidIntent, googleURL, fillForm, getEvent };
 })();
 </script>
-</body>
-</html>
+
+</body></html>
