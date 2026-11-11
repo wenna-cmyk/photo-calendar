@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>拍照加入行事曆</title>
+<meta name="description" content="拍下回診單或檢查通知單，自動辨識日期時間並加入手機行事曆。照片只在手機上處理，不會上傳。">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="拍照行事曆">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root {
+  --bg: #ffffff; --fg: #111111; --muted: #6b6b6b; --line: #d9d9d9;
+  --accent: #0b6b4f; --accent-fg: #ffffff; --warn: #b42318; --field: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111111; --fg: #f2f2f2; --muted: #9a9a9a; --line: #333333;
+    --accent: #3fbf8f; --accent-fg: #0b0b0b; --warn: #ff7a6e; --field: #111111; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0; }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font: 18px/1.55 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  -webkit-text-size-adjust: 100%;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  min-height: 100vh;
+}
+main { max-width: 560px; margin: 0 auto; padding: 0 16px 40px; }
+header { display: flex; align-items: baseline; justify-content: space-between; padding: 20px 0 14px; border-bottom: 1px solid var(--fg); }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+h2 { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .04em; margin: 28px 0 8px; }
+.link { background: none; border: 0; color: var(--fg); font: inherit; font-size: 16px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 6px 0; }
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 58px; padding: 0 16px; border: 1px solid var(--fg);
+  background: var(--bg); color: var(--fg); font: inherit; font-weight: 600; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn.primary { background: var(--fg); color: var(--bg); }
+.btn.go { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn:disabled { opacity: .35; cursor: default; }
+.btn:active:not(:disabled) { opacity: .75; }
+.stack > * + * { margin-top: 10px; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+.lead { padding: 22px 0 18px; color: var(--muted); font-size: 16px; }
+.status { font-size: 14px; color: var(--muted); padding: 14px 0 0; display: flex; justify-content: space-between; gap: 12px; }
+.bar { height: 2px; background: var(--line); margin-top: 6px; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--fg); transition: width .2s; }
+.hidden { display: none !important; }
+.note { font-size: 14px; color: var(--muted); }
+.warn { color: var(--warn); }
+.install { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+
+/* crop */
+.crop-wrap { position: relative; margin: 16px 0 12px; background: #000; touch-action: none; user-select: none; -webkit-user-select: none; }
+.crop-wrap canvas { display: block; width: 100%; height: auto; }
+.crop-hint { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+
+/* form */
+.field { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.field label { display: block; font-size: 13px; color: var(--muted); letter-spacing: .03em; margin-bottom: 4px; }
+.field input, .field select, .field textarea {
+  width: 100%; border: 0; background: var(--field); color: var(--fg); font: inherit; font-size: 18px; padding: 4px 0; outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.field select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 12px) 55%, calc(100% - 6px) 55%; background-size: 6px 6px; background-repeat: no-repeat; }
+.field textarea { resize: vertical; min-height: 96px; line-height: 1.5; font-size: 16px; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: none; }
+.field:focus-within { border-bottom-color: var(--fg); }
+.field .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chip { border: 1px solid var(--line); background: none; color: var(--fg); font: inherit; font-size: 14px; padding: 4px 10px; cursor: pointer; }
+.chip.on { border-color: var(--fg); }
+.seg { display: flex; border: 1px solid var(--fg); }
+.seg button { flex: 1; min-height: 44px; border: 0; background: var(--bg); color: var(--fg); font: inherit; font-size: 16px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--fg); }
+.seg button.on { background: var(--fg); color: var(--bg); }
+.two { display: flex; gap: 16px; }
+.two > .field { flex: 1; min-width: 0; }
+details { border-bottom: 1px solid var(--line); padding: 12px 0; }
+summary { font-size: 14px; color: var(--muted); cursor: pointer; }
+pre { white-space: pre-wrap; word-break: break-all; font: 14px/1.6 ui-monospace, Menlo, monospace; margin-top: 8px; color: var(--muted); }
+.actions { margin-top: 24px; }
+.alts { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 14px; }
+.done { padding: 40px 0 10px; }
+.done p { color: var(--muted); font-size: 16px; margin-top: 8px; }
+textarea.paste { width: 100%; min-height: 220px; border: 1px solid var(--line); background: var(--field); color: var(--fg); font: inherit; font-size: 16px; padding: 10px; margin: 16px 0 12px; }
+textarea.paste:focus { outline: none; border-color: var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>拍照加入行事曆</h1>
+    <button class="link" id="btnSettings" type="button">設定</button>
+  </header>
+
+  <!-- 首頁 -->
+  <section id="vHome">
+    <p class="lead">拍下回診單或檢查通知單，自動整理成行事曆活動。照片只在這支手機上處理，不會上傳。</p>
+    <div class="stack">
+      <label class="btn primary" for="inCamera">拍照</label>
+      <label class="btn" for="inLibrary">從相簿選擇</label>
+      <button class="btn" id="btnPaste" type="button">貼上文字</button>
+    </div>
+    <input id="inCamera" type="file" accept="image/*" capture="environment" class="hidden">
+    <input id="inLibrary" type="file" accept="image/*" class="hidden">
+    <div class="status" id="modelStatus"><span id="modelText">辨識模組準備中…</span><span id="modelPct"></span></div>
+    <div class="bar" id="modelBarWrap"><i id="modelBar"></i></div>
+    <div class="install hidden" id="installTip"></div>
+  </section>
+
+  <!-- 框選 -->
+  <section id="vCrop" class="hidden">
+    <div class="crop-wrap" id="cropWrap"><canvas id="cropCanvas"></canvas></div>
+    <p class="crop-hint" id="cropHint">用手指框出有日期時間的區域，辨識會更準。不框選就辨識整張。</p>
+    <div class="stack">
+      <button class="btn primary" id="btnRun" type="button">辨識整張</button>
+      <div class="row">
+        <button class="btn" id="btnRotate" type="button">旋轉</button>
+        <button class="btn" id="btnClear" type="button">取消框選</button>
+        <button class="btn" id="btnBack1" type="button">重拍</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 辨識中 -->
+  <section id="vBusy" class="hidden">
+    <p class="lead" id="busyText">辨識中…</p>
+    <div class="bar"><i id="busyBar"></i></div>
+  </section>
+
+  <!-- 貼上文字 -->
+  <section id="vPaste" class="hidden">
+    <p class="lead">在相簿長按照片上的文字（iPhone「原況文字」、Android「Google 智慧鏡頭」），全選複製後貼在下面。</p>
+    <textarea class="paste" id="pasteText" placeholder="貼上單據文字"></textarea>
+    <div class="stack">
+      <button class="btn primary" id="btnPasteGo" type="button">整理成活動</button>
+      <button class="btn" id="btnBack2" type="button">返回</button>
+    </div>
+  </section>
+
+  <!-- 確認 -->
+  <section id="vForm" class="hidden">
+    <p class="note warn" id="formWarn" style="padding-top:16px"></p>
+    <h2>類型</h2>
+    <div class="seg" id="segType"><button type="button" data-v="visit">回診</button><button type="button" data-v="exam">檢查</button></div>
+    <div class="field"><label for="fTitle">標題</label><input id="fTitle" autocomplete="off"></div>
+    <div class="field">
+      <label for="fDate">日期</label><input id="fDate" type="date">
+      <div class="sub" id="dateSub"></div>
+      <div class="chips" id="dateChips"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label for="fTime">開始時間</label><input id="fTime" type="time"><div class="sub" id="timeSub"></div></div>
+      <div class="field"><label for="fDur">時長</label>
+        <select id="fDur"><option value="30">30 分鐘</option><option value="60">1 小時</option><option value="90">1.5 小時</option><option value="120">2 小時</option><option value="180">3 小時</option></select>
+      </div>
+    </div>
+    <div class="field"><label for="fLoc">地點</label><input id="fLoc" autocomplete="off"></div>
+    <div class="field"><label for="fAlarm">提醒</label>
+      <select id="fAlarm"><option value="0">不提醒</option><option value="15">15 分鐘前</option><option value="30">30 分鐘前</option><option value="60">1 小時前</option><option value="120">2 小時前</option><option value="1440">1 天前</option></select>
+      <div class="sub" id="alarmSub"></div>
+    </div>
+    <div class="field"><label for="fNotes">備註</label><textarea id="fNotes"></textarea></div>
+    <details><summary>辨識到的原文</summary><pre id="rawText"></pre></details>
+    <div class="actions stack">
+      <button class="btn go" id="btnAdd" type="button">加入行事曆</button>
+      <button class="btn" id="btnBack3" type="button">重新拍照</button>
+    </div>
+    <div class="alts note">
+      <button class="link" id="altIcs" type="button">下載 .ics 檔</button>
+      <button class="link" id="altGoogle" type="button">用 Google 日曆開啟</button>
+      <button class="link hidden" id="altNative" type="button">用手機行事曆開啟</button>
+    </div>
+  </section>
+
+  <!-- 完成 -->
+  <section id="vDone" class="hidden">
+    <div class="done">
+      <h1>已送到行事曆</h1>
+      <p id="doneText">請在跳出的畫面按「加入」或「儲存」完成。</p>
+    </div>
+    <div class="stack">
+      <button class="btn primary" id="btnAgain" type="button">再拍一張</button>
+      <button class="btn" id="btnBackForm" type="button">回到上一步</button>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="vSettings" class="hidden">
+    <h2>沒有寫時間時，各時段的預設開始時間</h2>
+    <div class="two">
+      <div class="field"><label for="sAm">上午診</label><input id="sAm" type="time"></div>
+      <div class="field"><label for="sPm">下午診</label><input id="sPm" type="time"></div>
+      <div class="field"><label for="sEv">夜診</label><input id="sEv" type="time"></div>
+    </div>
+    <h2>預設值</h2>
+    <div class="field"><label for="sAlarm">提醒</label>
+      <select id="sAlarm"><option value="0">不提醒</option><option value="15">15 分鐘前</option><option value="30">30 分鐘前</option><option value="60">1 小時前</option><option value="120">2 小時前</option><option value="1440">1 天前</option></select>
+    </div>
+    <div class="field"><label for="sDur">時長</label>
+      <select id="sDur"><option value="30">30 分鐘</option><option value="60">1 小時</option><option value="90">1.5 小時</option><option value="120">2 小時</option><option value="180">3 小時</option></select>
+    </div>
+    <div class="field" id="sAndroidWrap"><label for="sAndroid">Android 加入方式</label>
+      <select id="sAndroid"><option value="native">手機內建行事曆</option><option value="google">Google 日曆</option><option value="ics">.ics 檔（三星行事曆等）</option></select>
+      <div class="sub">「手機內建行事曆」的提醒時間會依行事曆 App 的預設；要自訂提醒請選 .ics 檔。</div>
+    </div>
+    <div class="actions stack">
+      <button class="btn primary" id="btnSaveSettings" type="button">儲存</button>
+    </div>
+    <h2>關於</h2>
+    <p class="note">文字辨識使用 PaddleOCR 模型，完全在手機上執行，照片與內容不會上傳到任何伺服器。辨識結果請以單據為準。病患姓名與病歷號不會寫入行事曆。</p>
+  </section>
+</main>
+
+<script src="s2t.js"></script>
+<script src="parser.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  SlipParser.setS2T(self.S2T_PAIR);
+
+  // ---------- settings ----------
+  const DEFAULTS = { am: '08:30', pm: '13:30', ev: '18:00', alarm: '60', dur: '60', android: 'native' };
+  let settings = Object.assign({}, DEFAULTS);
+  try { Object.assign(settings, JSON.parse(localStorage.getItem('pc-settings') || '{}')); } catch (e) {}
+  function saveSettings() { try { localStorage.setItem('pc-settings', JSON.stringify(settings)); } catch (e) {} }
+
+  // ---------- views ----------
+  const views = ['vHome', 'vCrop', 'vBusy', 'vPaste', 'vForm', 'vDone', 'vSettings'];
+  let prevView = 'vHome';
+  function show(id) {
+    views.forEach(v => $(v).classList.toggle('hidden', v !== id));
+    if (id !== 'vSettings') prevView = id;
+    $('btnSettings').textContent = id === 'vSettings' ? '關閉' : '設定';
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- OCR worker ----------
+  let worker = null, modelReady = false, jobId = 0;
+  const pending = {};
+  function startWorker() {
+    if (worker) return;
+    try { worker = new Worker('ocr-worker.js'); }
+    catch (e) { setModel('無法啟動辨識模組，請改用「貼上文字」', null, true); return; }
+    worker.onmessage = e => {
+      const m = e.data;
+      if (m.type === 'progress' && m.stage === 'load') setModel('辨識模組下載中（第一次約 27 MB，之後不用再下載）', m.value);
+      if (m.type === 'progress' && m.stage === 'ocr') { $('busyBar').style.width = Math.round(m.value * 100) + '%'; }
+      if (m.type === 'ready') { modelReady = true; setModel('辨識模組已就緒，可離線使用', 1); setTimeout(() => $('modelBarWrap').classList.add('hidden'), 600); }
+      if (m.type === 'result' && pending[m.id]) { pending[m.id].resolve(m.lines); delete pending[m.id]; }
+      if (m.type === 'error') {
+        if (pending[m.id]) { pending[m.id].reject(new Error(m.message)); delete pending[m.id]; }
+        else setModel('辨識模組載入失敗，請檢查網路後重新開啟', null, true);
+      }
+    };
+    worker.onerror = () => setModel('辨識模組載入失敗，請改用「貼上文字」', null, true);
+    worker.postMessage({ type: 'init' });
+  }
+  function setModel(text, v, bad) {
+    $('modelText').textContent = text;
+    $('modelText').classList.toggle('warn', !!bad);
+    $('modelPct').textContent = v != null && v < 1 ? Math.round(v * 100) + '%' : '';
+    if (v != null) $('modelBar').style.width = Math.round(v * 100) + '%';
+  }
+  function runOCR(img) {
+    return new Promise((resolve, reject) => {
+      const id = ++jobId;
+      pending[id] = { resolve, reject };
+      worker.postMessage({ type: 'ocr', id, buffer: img.data.buffer, width: img.width, height: img.height }, [img.data.buffer]);
+    });
+  }
+
+  // ---------- image + crop ----------
+  let srcCanvas = null; // full-resolution (capped) working image
+  let sel = null;       // selection in image pixels {x,y,w,h}
+  const MAX_SIDE = 2000;
+
+  async function loadFile(file) {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const r = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      srcCanvas = c; sel = null;
+      show('vCrop'); drawCrop();
+    } catch (e) {
+      alert('無法讀取這張照片，請換一張試試。');
+    } finally { URL.revokeObjectURL(url); }
+  }
+  ['inCamera', 'inLibrary'].forEach(id => $(id).addEventListener('change', e => { loadFile(e.target.files[0]); e.target.value = ''; }));
+
+  const cc = $('cropCanvas');
+  function drawCrop() {
+    cc.width = srcCanvas.width; cc.height = srcCanvas.height;
+    const g = cc.getContext('2d');
+    g.drawImage(srcCanvas, 0, 0);
+    if (sel && sel.w > 4 && sel.h > 4) {
+      g.fillStyle = 'rgba(0,0,0,.55)';
+      g.beginPath(); g.rect(0, 0, cc.width, cc.height); g.rect(sel.x, sel.y, sel.w, sel.h); g.fill('evenodd');
+      g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(2, cc.width / 300);
+      g.strokeRect(sel.x, sel.y, sel.w, sel.h);
+    }
+    $('btnRun').textContent = sel && sel.w > 20 && sel.h > 20 ? '辨識框選範圍' : '辨識整張';
+  }
+  function toImg(e) {
+    const r = cc.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * cc.width / r.width, y: (e.clientY - r.top) * cc.height / r.height };
+  }
+  let dragStart = null;
+  cc.addEventListener('pointerdown', e => { dragStart = toImg(e); cc.setPointerCapture(e.pointerId); sel = { x: dragStart.x, y: dragStart.y, w: 0, h: 0 }; });
+  cc.addEventListener('pointermove', e => {
+    if (!dragStart) return;
+    const p = toImg(e);
+    sel = { x: Math.max(0, Math.min(p.x, dragStart.x)), y: Math.max(0, Math.min(p.y, dragStart.y)), w: Math.abs(p.x - dragStart.x), h: Math.abs(p.y - dragStart.y) };
+    sel.w = Math.min(sel.w, cc.width - sel.x); sel.h = Math.min(sel.h, cc.height - sel.y);
+    drawCrop();
+  });
+  const endDrag = () => { dragStart = null; if (sel && (sel.w < 20 || sel.h < 20)) sel = null; drawCrop(); };
+  cc.addEventListener('pointerup', endDrag); cc.addEventListener('pointercancel', endDrag);
+
+  $('btnRotate').onclick = () => {
+    const c = document.createElement('canvas'); c.width = srcCanvas.height; c.height = srcCanvas.width;
+    const g = c.getContext('2d'); g.translate(c.width, 0); g.rotate(Math.PI / 2); g.drawImage(srcCanvas, 0, 0);
+    srcCanvas = c; sel = null; drawCrop();
+  };
+  $('btnClear').onclick = () => { sel = null; drawCrop(); };
+  $('btnBack1').onclick = () => show('vHome');
+
+  // auto contrast: stretch luminance between 1st and 99th percentile (helps faded thermal paper)
+  function enhance(imgData) {
+    const d = imgData.data, hist = new Uint32Array(256), n = d.length / 4;
+    for (let i = 0; i < d.length; i += 4) hist[(d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0]++;
+    let lo = 0, hi = 255, acc = 0;
+    for (; lo < 255; lo++) { acc += hist[lo]; if (acc > n * 0.01) break; }
+    acc = 0;
+    for (; hi > 0; hi--) { acc += hist[hi]; if (acc > n * 0.01) break; }
+    if (hi - lo < 40 || (lo < 8 && hi > 247)) return imgData;
+    const k = 255 / (hi - lo);
+    for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) d[i + c] = Math.max(0, Math.min(255, (d[i + c] - lo) * k));
+    return imgData;
+  }
+
+  $('btnRun').onclick = async () => {
+    const r = sel && sel.w > 20 && sel.h > 20 ? sel : { x: 0, y: 0, w: srcCanvas.width, h: srcCanvas.height };
+    const x = Math.round(r.x), y = Math.round(r.y), w = Math.round(r.w), h = Math.round(r.h);
+    const imgData = enhance(srcCanvas.getContext('2d').getImageData(x, y, w, h));
+    show('vBusy');
+    $('busyBar').style.width = '0%';
+    $('busyText').textContent = modelReady ? '辨識中…' : '辨識模組下載中，完成後會自動開始辨識…';
+    startWorker();
+    try {
+      const lines = await runOCR({ data: imgData.data, width: w, height: h });
+      if (!lines.length) { alert('沒有辨識到文字。請拍清楚一點、避免反光，或改用「貼上文字」。'); show('vCrop'); return; }
+      fillForm(SlipParser.parse(lines.join('\n'), { sessions: { am: settings.am, pm: settings.pm, ev: settings.ev } }));
+    } catch (e) {
+      alert('辨識失敗：' + e.message + '\n可以改用「貼上文字」。');
+      show('vHome');
+    }
+  };
+
+  // ---------- paste ----------
+  $('btnPaste').onclick = () => { show('vPaste'); setTimeout(() => $('pasteText').focus(), 50); };
+  $('btnBack2').onclick = () => show('vHome');
+  $('btnPasteGo').onclick = () => {
+    const t = $('pasteText').value.trim();
+    if (!t) return;
+    fillForm(SlipParser.parse(t, { sessions: { am: settings.am, pm: settings.pm, ev: settings.ev } }));
+  };
+
+  // ---------- form ----------
+  let current = null, titleEdited = false;
+  function setType(t) {
+    current.type = t;
+    [...$('segType').children].forEach(b => b.classList.toggle('on', b.dataset.v === t));
+  }
+  $('segType').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !current) return;
+    setType(b.dataset.v);
+    if (!titleEdited) {
+      const r = current;
+      $('fTitle').value = r.type === 'exam'
+        ? '檢查｜' + (r.examItem || r.hospital || '醫院檢查') + (r.fasting ? '（需空腹）' : '')
+        : '回診｜' + ([r.dept, r.doctor].filter(Boolean).join(' ') || r.hospital || '門診') + (r.number ? ' ' + r.number + '號' : '');
+    }
+  });
+  $('fTitle').addEventListener('input', () => { titleEdited = true; });
+
+  const SRC = {
+    checkin: '單據上的報到時間',
+    explicit: '單據上的預約時間',
+    estimate: '單據上的預估到診時間，僅供參考',
+    other: '單據上的時間，請確認',
+    session: '單據沒寫時間，已填入時段預設時間（可在設定修改）',
+  };
+  function fillForm(r) {
+    current = r; titleEdited = false;
+    setType(r.type);
+    $('fTitle').value = r.title;
+    $('fDate').value = r.date;
+    $('fTime').value = r.time || settings.am;
+    $('fDur').value = settings.dur;
+    $('fAlarm').value = settings.alarm;
+    $('fLoc').value = r.location;
+    $('fNotes').value = r.notes;
+    $('rawText').textContent = r.lines.join('\n');
+    requestAnimationFrame(() => { const t = $('fNotes'); t.style.height = 'auto'; t.style.height = (t.scrollHeight + 4) + 'px'; });
+    $('timeSub').textContent = r.time ? (SRC[r.timeSource] || '') : '單據上找不到時間，請確認';
+    $('timeSub').classList.toggle('warn', !r.time || r.timeSource === 'other');
+    // dates
+    const chips = $('dateChips'); chips.innerHTML = '';
+    if (r.dateCandidates.length > 1) {
+      r.dateCandidates.forEach(d => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (d === r.date ? ' on' : '');
+        b.textContent = fmtDate(d); b.onclick = () => { $('fDate').value = d; updateDateSub(); [...chips.children].forEach(c => c.classList.toggle('on', c === b)); };
+        chips.appendChild(b);
+      });
+    }
+    updateDateSub();
+    $('alarmSub').textContent = isAndroid && settings.android === 'native' ? 'Android 內建行事曆會使用 App 的預設提醒，可在新增畫面調整' : '';
+    show('vForm');
+  }
+  function fmtDate(s) {
+    if (!s) return '';
+    const [y, m, d] = s.split('-').map(Number);
+    const wd = '日一二三四五六'[new Date(y, m - 1, d).getDay()];
+    return (y - 1911) + '/' + m + '/' + d + '（' + wd + '）';
+  }
+  function updateDateSub() {
+    const v = $('fDate').value, sub = $('dateSub');
+    if (!v) { sub.textContent = '找不到日期，請手動選擇'; sub.className = 'sub warn'; }
+    else {
+      const [y, m, d] = v.split('-').map(Number);
+      const past = new Date(y, m - 1, d) < new Date(new Date().toDateString());
+      sub.textContent = '民國 ' + fmtDate(v) + (past ? '　這個日期已經過了' : '');
+      sub.className = 'sub' + (past ? ' warn' : '');
+    }
+    $('btnAdd').disabled = !v;
+    $('formWarn').textContent = '';
+  }
+  $('fDate').addEventListener('input', updateDateSub);
+  $('btnBack3').onclick = () => show('vHome');
+
+  // ---------- calendar output ----------
+  function getEvent() {
+    const [y, mo, d] = $('fDate').value.split('-').map(Number);
+    const [h, mi] = ($('fTime').value || settings.am).split(':').map(Number);
+    const start = new Date(y, mo - 1, d, h, mi);
+    const end = new Date(start.getTime() + (+$('fDur').value) * 60000);
+    return {
+      title: $('fTitle').value.trim() || '醫院行程',
+      start, end,
+      location: $('fLoc').value.trim(),
+      notes: ($('fNotes').value.trim() + '\n\n（由拍照辨識產生，請以單據為準）').trim(),
+      alarm: +$('fAlarm').value,
+    };
+  }
+  const utc = dt => dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const p2 = n => String(n).padStart(2, '0');
+  const local = dt => dt.getFullYear() + p2(dt.getMonth() + 1) + p2(dt.getDate()) + 'T' + p2(dt.getHours()) + p2(dt.getMinutes()) + '00';
+  const esc = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  function fold(line) {
+    // fold to 75 octets (UTF-8), never splitting a character
+    const enc = new TextEncoder(); const out = []; let cur = '', len = 0, limit = 75;
+    for (const ch of line) {
+      const n = enc.encode(ch).length;
+      if (len + n > limit) { out.push(cur); cur = ' '; len = 1; limit = 75; }
+      cur += ch; len += n;
+    }
+    out.push(cur);
+    return out.join('\r\n');
+  }
+  function buildICS(ev) {
+    const uid = Date.now().toString(36) + Math.random().toString(36).slice(2) + '@photo-calendar';
+    const L = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//photo-calendar//ZH-TW', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+      'BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + utc(new Date()),
+      'DTSTART:' + utc(ev.start), 'DTEND:' + utc(ev.end),
+      'SUMMARY:' + esc(ev.title),
+    ];
+    if (ev.location) L.push('LOCATION:' + esc(ev.location));
+    if (ev.notes) L.push('DESCRIPTION:' + esc(ev.notes));
+    if (ev.alarm > 0) L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(ev.title), 'TRIGGER:-PT' + ev.alarm + 'M', 'END:VALARM');
+    L.push('END:VEVENT', 'END:VCALENDAR');
+    return L.map(fold).join('\r\n') + '\r\n';
+  }
+  function googleURL(ev) {
+    const q = new URLSearchParams({ action: 'TEMPLATE', text: ev.title, dates: local(ev.start) + '/' + local(ev.end), ctz: 'Asia/Taipei', details: ev.notes, location: ev.location });
+    return 'https://calendar.google.com/calendar/render?' + q.toString();
+  }
+  function androidIntent(ev) {
+    const e = encodeURIComponent;
+    return 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;' +
+      'l.beginTime=' + ev.start.getTime() + ';l.endTime=' + ev.end.getTime() + ';' +
+      'S.title=' + e(ev.title) + ';S.eventLocation=' + e(ev.location) + ';S.description=' + e(ev.notes) + ';' +
+      'S.browser_fallback_url=' + e(googleURL(ev)) + ';end';
+  }
+  function fileName(ev) { return '行程_' + ev.start.getFullYear() + p2(ev.start.getMonth() + 1) + p2(ev.start.getDate()) + '.ics'; }
+
+  function openICS(ev, forceDownload) {
+    const ics = buildICS(ev);
+    if (isIOS && !forceDownload) {
+      // iOS opens text/calendar with the "Add to Calendar" sheet
+      window.location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+      return;
+    }
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fileName(ev);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+  function openGoogle(ev) { window.open(googleURL(ev), '_blank'); }
+
+  function done(msg) { $('doneText').textContent = msg; show('vDone'); }
+  $('btnAdd').onclick = () => {
+    if (!$('fDate').value) { $('formWarn').textContent = '請先選擇日期'; return; }
+    const ev = getEvent();
+    if (isIOS) { openICS(ev); setTimeout(() => done('請在跳出的畫面按「加入」或「全部加入」。沒有跳出的話，回上一步改用「下載 .ics 檔」。'), 400); return; }
+    if (isAndroid) {
+      if (settings.android === 'google') { openGoogle(ev); done('請在 Google 日曆按「儲存」完成。'); return; }
+      if (settings.android === 'ics') { openICS(ev, true); done('已下載 .ics 檔。點通知列的檔案，選擇行事曆 App 匯入。'); return; }
+      window.location.href = androidIntent(ev);
+      setTimeout(() => done('請在行事曆的新增畫面按「儲存」完成。沒有跳出的話，回上一步改用其他方式。'), 400);
+      return;
+    }
+    openICS(ev, true);
+    done('已下載 .ics 檔，打開後即可加入行事曆。');
+  };
+  $('altIcs').onclick = () => { if (!$('fDate').value) return updateDateSub(); openICS(getEvent(), true); };
+  $('altGoogle').onclick = () => { if (!$('fDate').value) return updateDateSub(); openGoogle(getEvent()); };
+  if (isAndroid) { $('altNative').classList.remove('hidden'); $('altNative').onclick = () => { if (!$('fDate').value) return updateDateSub(); window.location.href = androidIntent(getEvent()); }; }
+  $('btnAgain').onclick = () => show('vHome');
+  $('btnBackForm').onclick = () => show('vForm');
+
+  // ---------- settings view ----------
+  $('btnSettings').onclick = () => {
+    if (!$('vSettings').classList.contains('hidden')) { show(prevView); return; }
+    $('sAm').value = settings.am; $('sPm').value = settings.pm; $('sEv').value = settings.ev;
+    $('sAlarm').value = settings.alarm; $('sDur').value = settings.dur; $('sAndroid').value = settings.android;
+    $('sAndroidWrap').classList.toggle('hidden', isIOS);
+    const back = prevView; show('vSettings'); prevView = back;
+  };
+  $('btnSaveSettings').onclick = () => {
+    settings = { am: $('sAm').value || DEFAULTS.am, pm: $('sPm').value || DEFAULTS.pm, ev: $('sEv').value || DEFAULTS.ev,
+      alarm: $('sAlarm').value, dur: $('sDur').value, android: $('sAndroid').value };
+    saveSettings();
+    show(prevView);
+  };
+
+  // ---------- install tip ----------
+  let deferredPrompt = null;
+  if (!standalone) {
+    const tip = $('installTip');
+    if (isIOS) { tip.textContent = '加到主畫面：用 Safari 開啟本頁，點下方「分享」→「加入主畫面」。'; tip.classList.remove('hidden'); }
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault(); deferredPrompt = e;
+      tip.innerHTML = '';
+      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = '加到主畫面';
+      b.onclick = async () => { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; tip.classList.add('hidden'); };
+      tip.appendChild(b); tip.classList.remove('hidden');
+    });
+    if (isAndroid) { tip.textContent = '加到主畫面：點 Chrome 右上角「⋮」→「加到主畫面」。'; tip.classList.remove('hidden'); }
+  }
+
+  // ---------- service worker + preload ----------
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // start loading the OCR model right away so it is ready when the photo is taken
+  startWorker();
+  window.__pc = { parse: t => SlipParser.parse(t), buildICS, androidIntent, googleURL, fillForm, getEvent };
+})();
+</script>
+</body>
+</html>
